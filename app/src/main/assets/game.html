@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sort Battle</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a14;--surface:#111128;--card:#161630;--border:#2a2a5a;
+  --pl:#a855f7;--player:#7c3aed;--el:#f87171;--enemy:#dc2626;
+  --cyan:#22d3ee;--gold:#fbbf24;--text:#e2e8f0;--muted:#64748b;
+}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;overflow-x:hidden}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(1px 1px at 8% 15%,#fff,transparent),
+    radial-gradient(1px 1px at 25% 65%,#aaa,transparent),
+    radial-gradient(1px 1px at 50% 8%,#fff,transparent),
+    radial-gradient(1px 1px at 72% 78%,#ccc,transparent),
+    radial-gradient(1px 1px at 88% 35%,#fff,transparent),
+    radial-gradient(1px 1px at 15% 88%,#aaa,transparent),
+    radial-gradient(1px 1px at 60% 48%,#fff,transparent),
+    radial-gradient(1px 1px at 40% 30%,#bbb,transparent),
+    radial-gradient(1px 1px at 93% 12%,#fff,transparent),
+    radial-gradient(1px 1px at 3% 52%,#aaa,transparent),
+    radial-gradient(1px 1px at 35% 95%,#fff,transparent),
+    radial-gradient(1px 1px at 80% 55%,#ccc,transparent);
+}
+
+/* ── SCREENS ── */
+.screen{position:relative;z-index:1;display:none;min-height:100vh}
+.screen.active{display:flex;flex-direction:column}
+
+/* ══════════════════════════════════════
+   MENU
+══════════════════════════════════════ */
+#menu{align-items:center;justify-content:center;padding:40px 16px}
+.menu-inner{width:100%;max-width:440px;text-align:center}
+
+.logo-title{
+  font-family:'Orbitron',sans-serif;font-size:clamp(40px,9vw,70px);
+  font-weight:900;letter-spacing:6px;
+  background:linear-gradient(135deg,var(--pl),var(--cyan),var(--el));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:8px;
+}
+.logo-sub{color:var(--muted);font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-bottom:56px}
+
+/* decorative algo list (just visual, not clickable) */
+.deco-algos{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:8px;
+  margin-bottom:48px;
+}
+.deco-chip{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:6px 14px;font-size:11px;color:var(--muted);
+  letter-spacing:1px;
+}
+
+.play-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;
+  letter-spacing:5px;padding:18px 64px;
+  background:linear-gradient(135deg,var(--player),#4f46e5);
+  border:none;border-radius:8px;color:#fff;cursor:pointer;
+  transition:all .2s;box-shadow:0 0 28px #7c3aed55;
+  position:relative;overflow:hidden;
+}
+.play-btn::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,transparent,rgba(255,255,255,.13),transparent);
+  transform:translateX(-100%);transition:.4s;
+}
+.play-btn:hover::after{transform:translateX(100%)}
+.play-btn:hover{box-shadow:0 0 44px #7c3aed88;transform:translateY(-3px)}
+.play-btn:active{transform:translateY(0)}
+
+/* ══════════════════════════════════════
+   PICK POPUP
+══════════════════════════════════════ */
+.popup-backdrop{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);
+  z-index:300;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+.popup-backdrop.show{display:flex}
+
+.popup{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:36px 32px 32px;max-width:480px;width:92%;
+  animation:popIn .35s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn{from{transform:scale(.7) translateY(20px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+
+.popup-label{
+  font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:3px;
+  color:var(--muted);text-align:center;margin-bottom:6px;
+}
+.popup-title{
+  font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;
+  letter-spacing:3px;color:var(--cyan);text-align:center;margin-bottom:28px;
+}
+
+.pick-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center;margin-bottom:28px}
+
+.pick-card{
+  background:var(--surface);border:2px solid var(--border);border-radius:10px;
+  padding:20px 14px;text-align:center;cursor:pointer;transition:all .22s;
+  user-select:none;
+}
+.pick-card:hover{border-color:var(--pl);transform:translateY(-4px);box-shadow:0 8px 24px #7c3aed44}
+.pick-card:active{transform:translateY(-1px)}
+.pick-card .pick-icon{font-size:36px;margin-bottom:10px}
+.pick-card .pick-name{
+  font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;
+  margin-bottom:6px;line-height:1.3;
+}
+.pick-card .pick-tag{
+  display:inline-block;font-size:9px;padding:3px 9px;border-radius:3px;
+  letter-spacing:1px;margin-bottom:8px;
+}
+.pick-card .pick-desc{font-size:9px;color:var(--muted);line-height:1.5}
+.tag-chaos{background:#3b1a6e;color:#c4b5fd}
+.tag-slow{background:#7f1d1d;color:#fca5a5}
+.tag-fast{background:#064e3b;color:#34d399}
+
+
+
+.popup-hint{font-size:10px;color:var(--muted);text-align:center;letter-spacing:1px}
+
+/* ══════════════════════════════════════
+   BATTLE SCREEN
+══════════════════════════════════════ */
+#battle{padding:16px;max-width:960px;margin:0 auto;width:100%}
+
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.back-btn{
+  background:transparent;border:1px solid var(--border);border-radius:6px;
+  color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:11px;
+  padding:6px 12px;cursor:pointer;transition:all .2s;
+}
+.back-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+
+.round-info{
+  font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:2px;color:var(--cyan);
+  display:flex;align-items:center;gap:10px;
+}
+.rdots{display:flex;gap:5px}
+.rdot{width:12px;height:12px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .3s}
+.rdot.win{background:var(--player);border-color:var(--pl)}
+.rdot.loss{background:var(--enemy);border-color:var(--el)}
+.rdot.cur{border-color:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+
+/* HP */
+.hp-row{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:16px}
+.f-hp{display:flex;flex-direction:column;gap:5px}
+.f-hp.right{align-items:flex-end}
+.f-name{font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:2px}
+.f-name.p{color:var(--pl)}.f-name.e{color:var(--el)}
+.hpbar{width:100%;height:16px;background:var(--surface);border:1px solid var(--border);border-radius:2px;overflow:hidden;position:relative}
+.hpfill{height:100%;transition:width .5s;border-radius:2px}
+.hpfill.p{background:linear-gradient(90deg,#5b21b6,var(--pl))}
+.hpfill.e{background:linear-gradient(90deg,var(--el),#991b1b)}
+.hptxt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted)}
+.vs-badge{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--gold);text-shadow:0 0 10px var(--gold);text-align:center}
+
+/* ARENAS */
+.arenas{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.arena-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px}
+.arena-box.p-box{border-color:#3b1e7a}
+.arena-box.e-box{border-color:#7f1d1d}
+.arena-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.arena-name{font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px}
+.arena-name.p{color:var(--pl)}.arena-name.e{color:var(--el)}
+.arena-ops{font-size:10px;color:var(--muted)}
+.arena-ops span{color:var(--cyan)}
+.bars{display:flex;align-items:flex-end;gap:2px;height:120px;border-bottom:1px solid var(--border);overflow:hidden}
+.b{flex:1;min-width:2px;border-radius:2px 2px 0 0}
+.b.pb{background:var(--pl)}.b.eb{background:var(--el)}
+.b.cmp{background:var(--gold)!important}
+.b.done{background:var(--cyan)!important;box-shadow:0 0 3px var(--cyan)}
+
+/* STATUS */
+.status{
+  text-align:center;background:var(--card);border:1px solid var(--border);
+  border-radius:8px;padding:12px;font-family:'Orbitron',sans-serif;
+  font-size:13px;letter-spacing:2px;color:var(--cyan);margin-bottom:12px;
+  min-height:44px;display:flex;align-items:center;justify-content:center;
+}
+.sw{color:var(--pl)}.sl{color:var(--el)}.sd{color:var(--gold)}
+
+/* ── RESULT OVERLAY ── */
+.overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  z-index:200;align-items:center;justify-content:center;
+}
+.overlay.show{display:flex}
+.ovbox{
+  background:var(--card);border:2px solid var(--border);border-radius:16px;
+  padding:44px 52px;text-align:center;max-width:420px;width:90%;
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+}
+.ov-emo{font-size:60px;margin-bottom:14px}
+.ov-title{font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;letter-spacing:4px;margin-bottom:6px}
+.ov-title.win{color:var(--pl);text-shadow:0 0 16px var(--player)}
+.ov-title.lose{color:var(--el);text-shadow:0 0 16px var(--enemy)}
+.ov-title.draw{color:var(--gold)}
+.ov-sub{color:var(--muted);font-size:11px;margin-bottom:22px;letter-spacing:1px}
+.ov-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+.ov-stat{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px}
+.ov-stat .lbl{font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:4px}
+.ov-stat .val{font-family:'Orbitron',sans-serif;font-size:15px}
+.ov-stat .val.p{color:var(--pl)}.ov-stat .val.e{color:var(--el)}
+.ov-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.ov-btn-main{
+  font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:2px;
+  padding:10px 22px;background:linear-gradient(135deg,var(--player),#4f46e5);
+  border:none;border-radius:6px;color:#fff;cursor:pointer;transition:all .2s;
+}
+.ov-btn-main:hover{transform:translateY(-2px);box-shadow:0 0 14px #7c3aed66}
+.ov-btn-sec{
+  font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:2px;
+  padding:10px 22px;background:transparent;border:1px solid var(--border);
+  border-radius:6px;color:var(--muted);cursor:pointer;transition:all .2s;
+}
+.ov-btn-sec:hover{border-color:var(--cyan);color:var(--cyan)}
+
+@media(max-width:520px){
+  .pick-row{grid-template-columns:1fr;gap:8px}
+  .pick-vs{display:none}
+  .arenas{grid-template-columns:1fr}
+  .ovbox{padding:28px 20px}
+  .popup{padding:28px 18px 24px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ MENU ══════════════════════════════════════════════════════ -->
+<div class="screen active" id="menu">
+  <div class="menu-inner">
+    <div class="logo-title">SORT BATTLE</div>
+    <div class="logo-sub">Algorithm Arena · Best of 3</div>
+
+    <div class="deco-algos">
+      <span class="deco-chip">Bogo Sort</span>
+      <span class="deco-chip">Random Sort</span>
+      <span class="deco-chip">Bubble Sort</span>
+      <span class="deco-chip">Insertion Sort</span>
+      <span class="deco-chip">Selection Sort</span>
+      <span class="deco-chip">Merge Sort</span>
+      <span class="deco-chip">Quick Sort</span>
+    </div>
+
+    <button class="play-btn" id="play-btn">▶ &nbsp;PLAY</button>
+  </div>
+</div>
+
+<!-- ══ PICK POPUP ════════════════════════════════════════════════ -->
+<div class="popup-backdrop" id="pick-popup">
+  <div class="popup">
+    <div class="popup-label">CHOOSE YOUR WEAPON</div>
+    <div class="popup-title">PICK AN ALGORITHM</div>
+    <div class="pick-row">
+      <div class="pick-card" id="pick-a" onclick="confirmPick('a')">
+        <div class="pick-icon" id="pa-icon">—</div>
+        <div class="pick-name" id="pa-name">—</div>
+        <span class="pick-tag" id="pa-tag">—</span>
+        <div class="pick-desc" id="pa-desc">—</div>
+      </div>
+      <div class="pick-card" id="pick-b" onclick="confirmPick('b')">
+        <div class="pick-icon" id="pb-icon">—</div>
+        <div class="pick-name" id="pb-name">—</div>
+        <span class="pick-tag" id="pb-tag">—</span>
+        <div class="pick-desc" id="pb-desc">—</div>
+      </div>
+    </div>
+    <div class="popup-hint">tap a card to pick · enemy gets the other one</div>
+  </div>
+</div>
+
+<!-- ══ BATTLE SCREEN ═════════════════════════════════════════════ -->
+<div class="screen" id="battle">
+  <div class="top-bar">
+    <button class="back-btn" id="back-btn">← MENU</button>
+    <div class="round-info">
+      <div class="rdots">
+        <div class="rdot cur" id="r0"></div>
+        <div class="rdot" id="r1"></div>
+        <div class="rdot" id="r2"></div>
+      </div>
+      <span id="rlabel">ROUND 1</span>
+    </div>
+    <div style="width:72px"></div>
+  </div>
+
+  <div class="hp-row">
+    <div class="f-hp">
+      <div class="f-name p">◈ YOU</div>
+      <div class="hpbar">
+        <div class="hpfill p" id="php" style="width:100%"></div>
+        <div class="hptxt" id="phptxt">3 HP</div>
+      </div>
+    </div>
+    <div class="vs-badge">VS</div>
+    <div class="f-hp right">
+      <div class="f-name e">ENEMY ◈</div>
+      <div class="hpbar">
+        <div class="hpfill e" id="ehp" style="width:100%"></div>
+        <div class="hptxt" id="ehptxt">3 HP</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arenas">
+    <div class="arena-box p-box">
+      <div class="arena-head">
+        <div class="arena-name p" id="p-aname">—</div>
+        <div class="arena-ops">OPS <span id="p-ops">0</span></div>
+      </div>
+      <div class="bars" id="p-bars"></div>
+    </div>
+    <div class="arena-box e-box">
+      <div class="arena-head">
+        <div class="arena-name e" id="e-aname">—</div>
+        <div class="arena-ops">OPS <span id="e-ops">0</span></div>
+      </div>
+      <div class="bars" id="e-bars"></div>
+    </div>
+  </div>
+
+  <div class="status" id="status">Preparing…</div>
+</div>
+
+<!-- ══ RESULT OVERLAY ════════════════════════════════════════════ -->
+<div class="overlay" id="overlay">
+  <div class="ovbox">
+    <div class="ov-emo" id="ov-emo">🏆</div>
+    <div class="ov-title win" id="ov-title">VICTORY</div>
+    <div class="ov-sub" id="ov-sub"></div>
+    <div class="ov-stats">
+      <div class="ov-stat"><div class="lbl">YOUR ALGO</div><div class="val p" id="ov-palgo">—</div></div>
+      <div class="ov-stat"><div class="lbl">ENEMY ALGO</div><div class="val e" id="ov-ealgo">—</div></div>
+      <div class="ov-stat"><div class="lbl">YOUR OPS</div><div class="val p" id="ov-pops">—</div></div>
+      <div class="ov-stat"><div class="lbl">ENEMY OPS</div><div class="val e" id="ov-eops">—</div></div>
+    </div>
+    <div class="ov-btns">
+      <button class="ov-btn-main" id="ov-next">▶ NEXT ROUND</button>
+      <button class="ov-btn-sec" id="ov-menu">↩ MENU</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── ALGO DATA ────────────────────────────────────────────────────
+const ALGOS = {
+  bogo:      { name:'Bogo Sort',      icon:'🎲', tag:'CHAOS', tagCls:'tag-chaos', desc:'Shuffle randomly until sorted — pure luck' },
+  random:    { name:'Random Sort',    icon:'🔀', tag:'CHAOS', tagCls:'tag-chaos', desc:'Random swaps until order is achieved' },
+  bubble:    { name:'Bubble Sort',    icon:'🫧', tag:'SLOW',  tagCls:'tag-slow',  desc:'Swap adjacent pairs, bubble up the max' },
+  insertion: { name:'Insertion Sort', icon:'🃏', tag:'SLOW',  tagCls:'tag-slow',  desc:'Insert each element into sorted portion' },
+  selection: { name:'Selection Sort', icon:'🎯', tag:'SLOW',  tagCls:'tag-slow',  desc:'Find minimum each pass and place it' },
+  merge:     { name:'Merge Sort',     icon:'⚡', tag:'FAST',  tagCls:'tag-fast',  desc:'Divide & conquer — O(n log n) guaranteed' },
+  quick:     { name:'Quick Sort',     icon:'🚀', tag:'FAST',  tagCls:'tag-fast',  desc:'Pivot-based — O(n log n) average case' },
+};
+const KEYS = Object.keys(ALGOS);
+
+// ── UTILS ────────────────────────────────────────────────────────
+function rnd(n){ return Math.floor(Math.random()*n) }
+function swap(a,i,j){ const t=a[i];a[i]=a[j];a[j]=t }
+function isSorted(a){ for(let i=0;i<a.length-1;i++) if(a[i]>a[i+1]) return false; return true }
+function shuffle(a){ for(let i=a.length-1;i>0;i--) swap(a,i,rnd(i+1)) }
+function genArr(n){ const a=Array.from({length:n},(_,i)=>i+1); shuffle(a); return a }
+
+// ── COMPUTE STEPS ────────────────────────────────────────────────
+function computeSteps(algo, arr){
+  const a=[...arr], steps=[];
+  const step=(arr,cmp)=>steps.push({arr:[...arr],cmp:cmp||[]});
+
+  if(algo==='bogo'){
+    let t=0; while(!isSorted(a)&&t<400){ shuffle(a);t++;step(a,[]) }
+    step(a,[]);
+  }
+  else if(algo==='random'){
+    let t=0; while(!isSorted(a)&&t<3000){ const i=rnd(a.length),j=rnd(a.length); if(a[i]>a[j]) swap(a,i,j); t++;step(a,[i,j]) }
+    step(a,[]);
+  }
+  else if(algo==='bubble'){
+    const n=a.length;
+    for(let i=0;i<n-1;i++) for(let j=0;j<n-i-1;j++){ if(a[j]>a[j+1]) swap(a,j,j+1); step(a,[j,j+1]) }
+    step(a,[]);
+  }
+  else if(algo==='merge'){
+    function ms(lo,hi){
+      if(hi-lo<1) return; const mid=(lo+hi)>>1; ms(lo,mid); ms(mid+1,hi);
+      const tmp=a.slice(lo,hi+1); let i=0,j=mid-lo+1,k=lo;
+      while(i<mid-lo+1&&j<hi-lo+1){ if(tmp[i]<=tmp[j]) a[k++]=tmp[i++]; else a[k++]=tmp[j++]; step(a,[k-1]) }
+      while(i<mid-lo+1){ a[k++]=tmp[i++]; step(a,[k-1]) }
+      while(j<hi-lo+1){ a[k++]=tmp[j++]; step(a,[k-1]) }
+    }
+    ms(0,a.length-1); step(a,[]);
+  }
+  else if(algo==='quick'){
+    function qs(lo,hi){
+      if(lo>=hi) return; const pv=a[hi]; let p=lo;
+      for(let i=lo;i<hi;i++){ if(a[i]<=pv){ swap(a,i,p);p++ } step(a,[i,hi]) }
+      swap(a,p,hi); step(a,[p]); qs(lo,p-1); qs(p+1,hi);
+    }
+    qs(0,a.length-1); step(a,[]);
+  }
+  else if(algo==='insertion'){
+    const n=a.length;
+    for(let i=1;i<n;i++){ const key=a[i]; let j=i-1; while(j>=0&&a[j]>key){ a[j+1]=a[j];j--;step(a,[j+1]) } a[j+1]=key; step(a,[j+1]) }
+    step(a,[]);
+  }
+  else if(algo==='selection'){
+    const n=a.length;
+    for(let i=0;i<n-1;i++){ let mi=i; for(let j=i+1;j<n;j++){ if(a[j]<a[mi]) mi=j; step(a,[j,mi]) } swap(a,i,mi); step(a,[i]) }
+    step(a,[]);
+  }
+  return steps;
+}
+
+// ── POPUP STATE ──────────────────────────────────────────────────
+let popupPair = { a: null, b: null };
+
+function openPickPopup(){
+  const shuffled = [...KEYS].sort(()=>Math.random()-.5);
+  popupPair.a = shuffled[0];
+  popupPair.b = shuffled[1];
+
+  function fill(prefix, key){
+    const m = ALGOS[key];
+    document.getElementById(prefix+'icon').textContent = m.icon;
+    document.getElementById(prefix+'name').textContent = m.name;
+    const tag = document.getElementById(prefix+'tag');
+    tag.textContent = m.tag;
+    tag.className = 'pick-tag ' + m.tagCls;
+    document.getElementById(prefix+'desc').textContent = m.desc;
+  }
+  fill('pa-', popupPair.a);
+  fill('pb-', popupPair.b);
+
+  document.getElementById('pick-popup').classList.add('show');
+}
+
+function confirmPick(side){
+  const playerKey = side === 'a' ? popupPair.a : popupPair.b;
+  // enemy is fully random, independent of player's pick
+  const enemyKey = KEYS[rnd(KEYS.length)];
+  document.getElementById('pick-popup').classList.remove('show');
+  game.playerKey = playerKey;
+  game.enemyKey = enemyKey;
+  startBattle(playerKey, enemyKey);
+}
+
+// ── GAME STATE ───────────────────────────────────────────────────
+let game = { php:3, ehp:3, round:0, results:[], running:false, playerKey:null, enemyKey:null };
+let animHandle = null;
+
+function $id(id){ return document.getElementById(id) }
+function setStatus(h){ $id('status').innerHTML = h }
+
+function updateHP(){
+  $id('php').style.width = (game.php/3*100)+'%';
+  $id('ehp').style.width = (game.ehp/3*100)+'%';
+  $id('phptxt').textContent = game.php+' HP';
+  $id('ehptxt').textContent = game.ehp+' HP';
+}
+
+function updateDots(){
+  for(let i=0;i<3;i++){
+    const d=$id('r'+i); d.className='rdot';
+    if(i<game.results.length) d.classList.add(game.results[i]==='w'?'win':'loss');
+    else if(i===game.round) d.classList.add('cur');
+  }
+  $id('rlabel').textContent = 'ROUND '+(game.round+1);
+}
+
+function drawBars(cid, arr, cmp, done){
+  const el=$id(cid), max=Math.max(...arr), isPl=cid==='p-bars', cls=isPl?'pb':'eb';
+  if(el.children.length!==arr.length){
+    el.innerHTML='';
+    arr.forEach(()=>{ const b=document.createElement('div');b.className='b '+cls;el.appendChild(b) });
+  }
+  for(let i=0;i<arr.length;i++){
+    const h=Math.max(3,Math.round((arr[i]/max)*114));
+    el.children[i].style.height=h+'px';
+    el.children[i].className='b '+cls+(done?' done':cmp.includes(i)?' cmp':'');
+  }
+}
+
+function cancelAnim(){ if(animHandle){ clearTimeout(animHandle);animHandle=null } }
+
+// ── SCREEN ───────────────────────────────────────────────────────
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $id(id).classList.add('active');
+}
+
+// ── BATTLE ───────────────────────────────────────────────────────
+function startBattle(pKey, eKey){
+  game.php=3; game.ehp=3; game.round=0; game.results=[]; game.running=false;
+  game.playerKey=pKey; game.enemyKey=eKey;
+  $id('p-bars').innerHTML=''; $id('e-bars').innerHTML='';
+  updateHP(); updateDots();
+  showScreen('battle');
+  runRound(pKey, eKey);
+}
+
+function runRound(pKey, eKey){
+  if(game.running) return;
+  game.running = true;
+  cancelAnim();
+
+  const pm=ALGOS[pKey], em=ALGOS[eKey];
+  $id('p-aname').textContent = pm.name;
+  $id('e-aname').textContent = em.name;
+  $id('p-ops').textContent = '0';
+  $id('e-ops').textContent = '0';
+  updateDots();
+
+  setStatus(`⚔️ &nbsp;<span class="sw">${pm.name}</span>&nbsp; vs &nbsp;<span class="sl">${em.name}</span>`);
+
+  const base = genArr(32);
+  const pSteps = computeSteps(pKey, [...base]);
+  const eSteps = computeSteps(eKey, [...base]);
+  const total  = Math.max(pSteps.length, eSteps.length);
+
+  drawBars('p-bars', base, [], false);
+  drawBars('e-bars', base, [], false);
+
+  let frame=0, pDone=false, eDone=false;
+
+  function tick(){
+    if(frame>=total){
+      drawBars('p-bars', pSteps[pSteps.length-1].arr, [], true);
+      drawBars('e-bars', eSteps[eSteps.length-1].arr, [], true);
+      $id('p-ops').textContent = pSteps.length;
+      $id('e-ops').textContent = eSteps.length;
+      finishRound(pKey, eKey, pSteps.length, eSteps.length, pm.name, em.name);
+      return;
+    }
+    if(frame<pSteps.length){
+      const s=pSteps[frame]; drawBars('p-bars',s.arr,s.cmp,false); $id('p-ops').textContent=frame+1;
+      if(frame===pSteps.length-1&&!pDone){ pDone=true; drawBars('p-bars',s.arr,[],true) }
+    } else if(!pDone){ pDone=true; drawBars('p-bars',pSteps[pSteps.length-1].arr,[],true) }
+
+    if(frame<eSteps.length){
+      const s=eSteps[frame]; drawBars('e-bars',s.arr,s.cmp,false); $id('e-ops').textContent=frame+1;
+      if(frame===eSteps.length-1&&!eDone){ eDone=true; drawBars('e-bars',s.arr,[],true) }
+    } else if(!eDone){ eDone=true; drawBars('e-bars',eSteps[eSteps.length-1].arr,[],true) }
+
+    frame++;
+    animHandle = setTimeout(tick, 28);
+  }
+  animHandle = setTimeout(tick, 28);
+}
+
+function finishRound(pKey, eKey, pOps, eOps, pName, eName){
+  cancelAnim();
+  const winner = pOps<eOps?'player': eOps<pOps?'enemy':'draw';
+
+  setTimeout(()=>{
+    if(winner==='player'){ game.ehp--; game.results.push('w'); setStatus(`<span class="sw">✓ YOU WIN THIS ROUND!</span> &nbsp;Enemy HP -1`) }
+    else if(winner==='enemy'){ game.php--; game.results.push('l'); setStatus(`<span class="sl">✗ ENEMY WINS!</span> &nbsp;Your HP -1`) }
+    else { game.results.push('d'); setStatus(`<span class="sd">⚡ DRAW!</span> &nbsp;No damage`) }
+    updateHP(); updateDots();
+    game.round++;
+    game.running = false;
+
+    const over = game.php<=0 || game.ehp<=0 || game.round>=3;
+    setTimeout(()=>showResult(pName,eName,pOps,eOps,over), 700);
+  }, 300);
+}
+
+// ── RESULT OVERLAY ───────────────────────────────────────────────
+function showResult(pName, eName, pOps, eOps, isOver){
+  const wins=game.results.filter(r=>r==='w').length;
+  const losses=game.results.filter(r=>r==='l').length;
+
+  $id('ov-palgo').textContent = pName;
+  $id('ov-ealgo').textContent = eName;
+  $id('ov-pops').textContent  = pOps.toLocaleString();
+  $id('ov-eops').textContent  = eOps.toLocaleString();
+
+  if(isOver){
+    if(wins>losses){
+      $id('ov-emo').textContent='🏆'; $id('ov-title').className='ov-title win';
+      $id('ov-title').textContent='VICTORY'; $id('ov-sub').textContent=wins+'-'+losses+' · You dominated the arena!';
+    } else if(losses>wins){
+      $id('ov-emo').textContent='💀'; $id('ov-title').className='ov-title lose';
+      $id('ov-title').textContent='DEFEATED'; $id('ov-sub').textContent=wins+'-'+losses+' · Better luck next time.';
+    } else {
+      $id('ov-emo').textContent='⚡'; $id('ov-title').className='ov-title draw';
+      $id('ov-title').textContent='DRAW'; $id('ov-sub').textContent='Evenly matched — honor in battle.';
+    }
+    $id('ov-next').textContent='↺ PLAY AGAIN';
+    $id('ov-next').onclick=()=>{ $id('overlay').classList.remove('show'); cancelAnim(); game={php:3,ehp:3,round:0,results:[],running:false,playerKey:null,enemyKey:null}; showScreen('menu') };
+  } else {
+    const last=game.results[game.results.length-1];
+    if(last==='w'){ $id('ov-emo').textContent='✊'; $id('ov-title').className='ov-title win'; $id('ov-title').textContent='ROUND WIN'; $id('ov-sub').textContent='Your algorithm was faster!' }
+    else if(last==='l'){ $id('ov-emo').textContent='😤'; $id('ov-title').className='ov-title lose'; $id('ov-title').textContent='ROUND LOSS'; $id('ov-sub').textContent='Enemy had fewer operations.' }
+    else { $id('ov-emo').textContent='🤝'; $id('ov-title').className='ov-title draw'; $id('ov-title').textContent='DRAW'; $id('ov-sub').textContent='Exactly equal operations!' }
+
+    $id('ov-next').textContent='▶ NEXT ROUND';
+    $id('ov-next').onclick=()=>{
+      $id('overlay').classList.remove('show');
+      $id('p-bars').innerHTML=''; $id('e-bars').innerHTML='';
+      runRound(game.playerKey, game.enemyKey);
+    };
+  }
+
+  $id('ov-menu').onclick=()=>{
+    $id('overlay').classList.remove('show');
+    cancelAnim();
+    game={php:3,ehp:3,round:0,results:[],running:false,playerKey:null,enemyKey:null};
+    showScreen('menu');
+  };
+
+  $id('overlay').classList.add('show');
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+$id('play-btn').onclick = openPickPopup;
+$id('back-btn').onclick = ()=>{ cancelAnim(); game={php:3,ehp:3,round:0,results:[],running:false,playerKey:null,enemyKey:null}; showScreen('menu') };
+</script>
+</body>
+</html>
